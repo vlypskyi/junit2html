@@ -580,10 +580,13 @@ class Junit(HtmlHeadMixin):
         """
         self.filename = filename
         self.tree = None
+        self.duration = 0
         if filename is not None:
             self.tree = ET.parse(filename)
+            self.reportname = os.path.basename(filename)
         elif xmlstring is not None:
             self._read(xmlstring)
+            self.reportname = "XML string"
         else:
             raise ValueError("Missing any filename or xmlstring")
         self.suites = []
@@ -624,6 +627,7 @@ class Junit(HtmlHeadMixin):
 
         if root.tag == "testsuites":
             suites = [x for x in root]
+            self.duration = float(root.attrib.get("time", '0').replace(',',''))
 
         if suites is None:
             raise ParserError("could not find test suites in results xml")
@@ -717,9 +721,10 @@ class Junit(HtmlHeadMixin):
         if len(self.suites) > 1:
             tochtml = "<ul>"
             for suite in self.suites:
-                tochtml += '<li><a href="#{anchor}">{name}</a></li>'.format(
+                tochtml += '<li><a href="#{anchor}">{name}</a> <span style="font-family: monospace">({duration}s)</span></li>'.format(
                         anchor=suite.anchor(),
-                        name=tag.text(suite.name))
+                        name=tag.text(suite.name),
+                        duration=suite.duration)
             tochtml += "</ul>"
             return tochtml
         else:
@@ -731,8 +736,9 @@ class Junit(HtmlHeadMixin):
         :return:
         """
 
-        page = self.get_html_head(self.filename)
-        page += "<body><h1>Test Report</h1>"
+        page = self.get_html_head(self.reportname)
+        page += "<body><h1>Test Report - {reportname}</h1>".format(reportname=self.reportname)
+        page += "<h2>Total duration: {duration} sec</h1>".format(duration=self.duration)
         page += self.toc()
         for suite in self.suites:
             page += suite.html()
